@@ -31,8 +31,13 @@ class Settings(BaseSettings):
     UNUSUAL_EXPENSE_STDEV_MULTIPLIER: float = 2.0
 
     # File uploads (receipts, etc.) — stored on local disk by default.
-    # Point this at a mounted volume / object-storage-backed path in production.
-    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+    # On Vercel's serverless filesystem, only /tmp is writable, and even
+    # that doesn't persist between invocations — receipt uploads work
+    # per-request there but won't survive a cold start. Point this at a
+    # mounted volume / object-storage-backed path for real persistence.
+    UPLOAD_DIR: str = os.getenv(
+        "UPLOAD_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "./uploads"
+    )
     MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
     ALLOWED_RECEIPT_TYPES: list = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
 
