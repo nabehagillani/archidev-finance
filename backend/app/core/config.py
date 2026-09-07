@@ -22,9 +22,19 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed frontend origins, e.g.
     # "https://your-app.vercel.app,http://localhost:5173" — set this env
     # var on the deployed backend once you know your frontend's real URL.
-    CORS_ORIGINS: list = os.getenv(
+    # NOTE: kept as a plain string field (not `list`) on purpose —
+    # pydantic-settings expects list-typed env vars to be valid JSON
+    # (e.g. '["a","b"]'), and crashes on a plain comma-separated string
+    # or "*". See the cors_origins_list property below for the parsed form.
+    CORS_ORIGINS: str = os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
-    ).split(",")
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        if self.CORS_ORIGINS.strip() == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     # Business rules
     LOW_CASH_THRESHOLD_DAYS: int = 30
@@ -39,7 +49,17 @@ class Settings(BaseSettings):
         "UPLOAD_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "./uploads"
     )
     MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
-    ALLOWED_RECEIPT_TYPES: list = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+
+    # Same reasoning as CORS_ORIGINS: kept as a comma-separated string
+    # rather than `list` so it can never crash Settings() if someone
+    # ever sets ALLOWED_RECEIPT_TYPES as a plain env var.
+    ALLOWED_RECEIPT_TYPES_RAW: str = os.getenv(
+        "ALLOWED_RECEIPT_TYPES", "image/jpeg,image/png,image/webp,application/pdf"
+    )
+
+    @property
+    def ALLOWED_RECEIPT_TYPES(self) -> list[str]:
+        return [t.strip() for t in self.ALLOWED_RECEIPT_TYPES_RAW.split(",") if t.strip()]
 
     # Optional: set to enable real LLM-backed AI Assistant responses.
     # Falls back to the rule-based assistant when unset.
